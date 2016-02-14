@@ -182,5 +182,18 @@ function keyboardHandlerDown(keyboardEvent) {
 }
 
 function keyboardHandlerUp(keyboardEvent) {
-
+  switch (keyboardEvent.key) {
+    case "ArrowUp":
+      velocity[1] = 0.00;
+      break;
+    case "ArrowDown":
+      velocity[1] = 0.00;
+      break;
+    case "ArrowLeft":
+      velocity[0] = 0.00;
+      break;
+    case "ArrowRight":
+      velocity[0] = 0.00;
+      break;
+  }
 }
