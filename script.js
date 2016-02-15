@@ -8,20 +8,23 @@ Translation tutorial
 Redraw tutorial
 */
 var gl; //WebGL lives in here!
-var offsetLoc, pos = [0,0,0,0], velocity=[0,0,0,0];
+var offsetLoc, pos = [0, 0, 0, 0],
+  velocity = [0, 0, 0, 0];
+var scroll = 0;
 //Called by the body
 function start() {
   //init the WebGL
   var glcanvas = document.getElementById("glcanvas");
   glcanvas.width = window.innerWidth;
   glcanvas.height = window.innerHeight;
+  //Events
   window.addEventListener('resize', () => {
     glcanvas.width = window.innerWidth;
     glcanvas.height = window.innerHeight;
-    redraw();
   }, false);
   window.addEventListener("keydown", keyboardHandlerDown);
   window.addEventListener("keyup", keyboardHandlerUp);
+  window.addEventListener("wheel", scrollHandler);
   gl = initWebGL(glcanvas);
 
   if (gl) {
@@ -55,7 +58,7 @@ function start() {
     attribute vec4 coordinates;
     uniform vec4 offset; 
     void main(void){
-    vec4 pos = vec4(coordinates.x*0.003,coordinates.y*-0.005,coordinates.z,coordinates.w) + offset;
+    vec4 pos = vec4(coordinates.x*0.003,coordinates.y*-0.005,coordinates.z,(1.0+coordinates.z)*0.5) + offset;
       gl_Position = pos;
     }`, gl.VERTEX_SHADER);
 
@@ -84,7 +87,9 @@ function start() {
     feedShader(shaderProgram, buffer, "coordinates");
     //Change a uniform variable
     offsetLoc = gl.getUniformLocation(shaderProgram, "offset");
-    
+
+    gl.enable(gl.DEPTH_TEST);
+    //gl.enable(gl.CULL_FACE);
 
     window.requestAnimationFrame(redraw);
   }
@@ -94,7 +99,6 @@ function redraw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   pos[0] += velocity[0];
   pos[1] += velocity[1];
-  pos[2] += velocity[2];
   gl.uniform4fv(offsetLoc, pos);
   //Triangle
   gl.drawArrays(gl.TRIANGLES, 0, 18);
@@ -165,7 +169,7 @@ function initWebGL(canvas) {
 }
 
 function keyboardHandlerDown(keyboardEvent) {
-  switch (keyboardEvent.key) {
+  switch (keyboardEvent.code) {
     case "ArrowUp":
       velocity[1] = 0.01;
       break;
@@ -182,7 +186,7 @@ function keyboardHandlerDown(keyboardEvent) {
 }
 
 function keyboardHandlerUp(keyboardEvent) {
-  switch (keyboardEvent.key) {
+  switch (keyboardEvent.code) {
     case "ArrowUp":
       velocity[1] = 0.00;
       break;
@@ -196,4 +200,9 @@ function keyboardHandlerUp(keyboardEvent) {
       velocity[0] = 0.00;
       break;
   }
+}
+
+function scrollHandler(scrollEvent) {
+  console.log(pos[3]);
+  pos[3] += scrollEvent.deltaY / 100;
 }
