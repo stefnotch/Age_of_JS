@@ -4,16 +4,190 @@ git push
 */
 /*TODO 
 Color tutorial
-Translation tutorial
-Redraw tutorial
+Perspective
+Matrices: https://www.khanacademy.org/math/precalculus/precalc-matrices/intro-to-matrices/v/introduction-to-the-matrix
+Matrix Math library (self made. duh)
+Create special data structure for the matrices
+[].concat.apply([], arrays);
+*/
+/**
+
+var mat1 = [
+1,2,3,4,
+4,3,2,1,
+1,1,1,1,
+2,3,4,7];
+var mat2 = [
+1,9,3,0,
+4,3,2,1,
+1,1,9,1,
+2,0,4,7];
+var returnMat = [];
+for (var y = 0; y < 4; y++) {
+  for (var x = 0; x < 4; x++) {
+   var dotProduct = 0;
+   for(var count = 0; count < 4; count++){
+    dotProduct += mat1[y * 4 + count] * mat2[count * 4 + x];
+   }
+
+   returnMat[y * 4 + x] = dotProduct;
+  }
+}
+
 */
 var gl; //WebGL lives in here!
-var offsetLoc, pos = [0, 0, 0, 0],
-  velocity = [0, 0, 0, 0];
-var scroll = 0;
+//Translation
+var pos = [0, 0, 0],
+  velocity = [0, 0, 0];
+//Rotation
+var rotation = [0, 1, 0];
+var matrixLoc;
+
+var MatrixMath = {
+  rotationXMatrix: function(angle) {
+    var angleInRadians = angle * Math.PI / 180;
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    return [
+      1, 0, 0, 0,
+      0, c, s, 0,
+      0, -s, c, 0,
+      0, 0, 0, 1
+    ];
+  },
+  rotationYMatrix: function(angle) {
+    var angleInRadians = angle * Math.PI / 180;
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    return [
+      c, 0, -s, 0,
+      0, 1, 0, 0,
+      s, 0, c, 0,
+      0, 0, 0, 1
+    ];
+  },
+  rotationZMatrix: function(angle) {
+    var angleInRadians = angle * Math.PI / 180;
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    return [
+      c, s, 0, 0, //Hehe, no screwing up my formatting, ok!?
+      -s, c, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ];
+  },
+  translationMatrix: function(tx, ty, tz) {
+    return [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      tx, ty, tz, 1
+    ];
+  },
+  scaleMatrix: function(scale) {
+    return [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, scale
+    ];
+  },
+  //Working?
+  multiply: function(matrix1, matrix2) {
+    if (matrix1.length != 16 || matrix2.length != 16) {
+      throw Error("The matrices need to be 4 * 4.");
+    }
+    var returnMatrix = [];
+    for (var y = 0; y < 4; y++) {
+      for (var x = 0; x < 4; x++) {
+        var dotProduct = 0;
+        for (var count = 0; count < 4; count++) {
+          dotProduct += matrix1[y * 4 + count] * matrix2[count * 4 + x];
+        }
+
+        returnMatrix[y * 4 + x] = dotProduct;
+      }
+    }
+    return returnMatrix;
+  },
+  dotProcuct: function(array1, array2) {
+    if (array1.length != array2.length) {
+      throw Error("Not same length.");
+    }
+    //Multiply each element of array2 by array1[i] and get their sum
+    return array2.map((s, i) => array1[i] * s).reduce((prev, curr) => prev + curr);
+  },
+  transpose: function(matrix) {
+    if (matrix.length != 16) {
+      throw Error("The matrix needs to be 4 * 4.");
+    }
+    console.log(matrix);
+    var transposedMatrix = [];
+    for (var y = 0; y < 4; y++) {
+      for (var x = 0; x < 4; x++) {
+        transposedMatrix[x * 4 + y] = matrix[y * 4 + x];
+      }
+    }
+    return transposedMatrix;
+  },
+  fastMultiply: function(a, b) {
+    var a00 = a[0 * 4 + 0];
+    var a01 = a[0 * 4 + 1];
+    var a02 = a[0 * 4 + 2];
+    var a03 = a[0 * 4 + 3];
+    var a10 = a[1 * 4 + 0];
+    var a11 = a[1 * 4 + 1];
+    var a12 = a[1 * 4 + 2];
+    var a13 = a[1 * 4 + 3];
+    var a20 = a[2 * 4 + 0];
+    var a21 = a[2 * 4 + 1];
+    var a22 = a[2 * 4 + 2];
+    var a23 = a[2 * 4 + 3];
+    var a30 = a[3 * 4 + 0];
+    var a31 = a[3 * 4 + 1];
+    var a32 = a[3 * 4 + 2];
+    var a33 = a[3 * 4 + 3];
+    var b00 = b[0 * 4 + 0];
+    var b01 = b[0 * 4 + 1];
+    var b02 = b[0 * 4 + 2];
+    var b03 = b[0 * 4 + 3];
+    var b10 = b[1 * 4 + 0];
+    var b11 = b[1 * 4 + 1];
+    var b12 = b[1 * 4 + 2];
+    var b13 = b[1 * 4 + 3];
+    var b20 = b[2 * 4 + 0];
+    var b21 = b[2 * 4 + 1];
+    var b22 = b[2 * 4 + 2];
+    var b23 = b[2 * 4 + 3];
+    var b30 = b[3 * 4 + 0];
+    var b31 = b[3 * 4 + 1];
+    var b32 = b[3 * 4 + 2];
+    var b33 = b[3 * 4 + 3];
+    return [a00 * b00 + a01 * b10 + a02 * b20 + a03 * b30,
+      a00 * b01 + a01 * b11 + a02 * b21 + a03 * b31,
+      a00 * b02 + a01 * b12 + a02 * b22 + a03 * b32,
+      a00 * b03 + a01 * b13 + a02 * b23 + a03 * b33,
+      a10 * b00 + a11 * b10 + a12 * b20 + a13 * b30,
+      a10 * b01 + a11 * b11 + a12 * b21 + a13 * b31,
+      a10 * b02 + a11 * b12 + a12 * b22 + a13 * b32,
+      a10 * b03 + a11 * b13 + a12 * b23 + a13 * b33,
+      a20 * b00 + a21 * b10 + a22 * b20 + a23 * b30,
+      a20 * b01 + a21 * b11 + a22 * b21 + a23 * b31,
+      a20 * b02 + a21 * b12 + a22 * b22 + a23 * b32,
+      a20 * b03 + a21 * b13 + a22 * b23 + a23 * b33,
+      a30 * b00 + a31 * b10 + a32 * b20 + a33 * b30,
+      a30 * b01 + a31 * b11 + a32 * b21 + a33 * b31,
+      a30 * b02 + a31 * b12 + a32 * b22 + a33 * b32,
+      a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33
+    ];
+  }
+
+};
+
 //Called by the body
 function start() {
-  //init the WebGL
+  //init canvas
   var glcanvas = document.getElementById("glcanvas");
   glcanvas.width = window.innerWidth;
   glcanvas.height = window.innerHeight;
@@ -25,10 +199,11 @@ function start() {
   window.addEventListener("keydown", keyboardHandlerDown);
   window.addEventListener("keyup", keyboardHandlerUp);
   window.addEventListener("wheel", scrollHandler);
+  //Init WebGL
   gl = initWebGL(glcanvas);
 
   if (gl) {
-
+    //F
     var buffer = createVBO([
       // left column
       0, 0, 0,
@@ -54,17 +229,17 @@ function start() {
       67, 60, 0,
       67, 90, 0
     ]);
+    //Shaders
     var vertexShader = createShader(`
     attribute vec4 coordinates;
-    uniform vec4 offset; 
+    uniform mat4 u_matrix; //The Matrix!
     void main(void){
-    vec4 pos = vec4(coordinates.x*0.003,coordinates.y*-0.005,coordinates.z,(1.0+coordinates.z)*0.5) + offset;
-      gl_Position = pos;
+      gl_Position = u_matrix * coordinates ;
     }`, gl.VERTEX_SHADER);
 
     var fragmentShader = createShader(`
     void main() {
-      gl_FragColor = vec4(0, 1, 0, 1);  // green
+      gl_FragColor = vec4(0, 1, 1, 1);  // green
     }`, gl.FRAGMENT_SHADER);
 
     // Put the vertex shader and fragment shader together into
@@ -85,9 +260,8 @@ function start() {
     gl.useProgram(shaderProgram);
     //Feed the shader
     feedShader(shaderProgram, buffer, "coordinates");
-    //Change a uniform variable
-    offsetLoc = gl.getUniformLocation(shaderProgram, "offset");
-
+    //Get the uniform variables
+    matrixLoc = gl.getUniformLocation(shaderProgram, "u_matrix");
     gl.enable(gl.DEPTH_TEST);
     //gl.enable(gl.CULL_FACE);
 
@@ -99,7 +273,10 @@ function redraw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   pos[0] += velocity[0];
   pos[1] += velocity[1];
-  gl.uniform4fv(offsetLoc, pos);
+  pos[2] += velocity[2];
+  //Pass data to shader
+  var matrix = MatrixMath.multiply(MatrixMath.translationMatrix(pos[0], pos[1], pos[2]),MatrixMath.scaleMatrix(0.5));
+  gl.uniformMatrix4fv(matrixLoc, false, new Float32Array(matrix));
   //Triangle
   gl.drawArrays(gl.TRIANGLES, 0, 18);
   window.requestAnimationFrame(redraw);
@@ -124,7 +301,7 @@ function createShader(shaderCode, shaderType) {
   return shader;
 }
 
-//Feed the beast!
+//uniform variables inside the shaders
 function feedShader(shaderProgram, dataBuffer, name) {
   // Tell WebGL that the data from the array of triangle
   // coordinates that we've already copied to the graphics
@@ -133,17 +310,17 @@ function feedShader(shaderProgram, dataBuffer, name) {
   var positionLocation = gl.getAttribLocation(shaderProgram, name);
   gl.enableVertexAttribArray(positionLocation);
   gl.bindBuffer(gl.ARRAY_BUFFER, dataBuffer);
-  let numComponents = 3; // (x, y, z)
-  let type = gl.FLOAT;
-  let normalize = false; // leave the values as they are
-  let offset = 0; // start at the beginning of the buffer
-  let stride = 0; // how many bytes to move to the next vertex
+  var numComponents = 3; // (x, y, z)
+  var type = gl.FLOAT;
+  var normalize = false; // leave the values as they are
+  var offset = 0; // start at the beginning of the buffer
+  var stride = 0; // how many bytes to move to the next vertex
   // 0 = use the correct stride for type and numComponents
   gl.vertexAttribPointer(positionLocation, numComponents, type, normalize, stride, offset);
 
   return positionLocation; //Location of the stuff that is being fed to the shader
 }
-
+//Create WebGL
 function initWebGL(canvas) {
   gl = null;
 
@@ -160,6 +337,7 @@ function initWebGL(canvas) {
       alert("Your browser supports WebGL, but something screwed up.");
       gl = null;
     }
+    console.log(gl);
   }
   else {
     alert("No WebGL?");
@@ -167,7 +345,7 @@ function initWebGL(canvas) {
 
   return gl;
 }
-
+//User input
 function keyboardHandlerDown(keyboardEvent) {
   switch (keyboardEvent.code) {
     case "ArrowUp":
@@ -203,6 +381,5 @@ function keyboardHandlerUp(keyboardEvent) {
 }
 
 function scrollHandler(scrollEvent) {
-  console.log(pos[3]);
   pos[3] += scrollEvent.deltaY / 100;
 }
