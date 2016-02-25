@@ -67,7 +67,7 @@ var MatrixMath = {
       0, 0, 0, scale
     ];
   },
-  scaleDimensionsMatrix: function(scaleX,scaleY,scaleZ) {
+  scaleDimensionsMatrix: function(scaleX, scaleY, scaleZ) {
     return [
       scaleX, 0, 0, 0,
       0, scaleY, 0, 0,
@@ -181,35 +181,141 @@ function start() {
   window.addEventListener("keydown", keyboardHandlerDown);
   window.addEventListener("keyup", keyboardHandlerUp);
   window.addEventListener("wheel", scrollHandler);
+  window.addEventListener("mousemove", mouseHandler);
+
   //Init WebGL
   gl = initWebGL(glcanvas);
 
   if (gl) {
     //F
     var buffer = createVBO([
-      // left column
+      // left column front
       0, 0, 0,
-      30, 0, 0,
-      0, 150, 0,
       0, 150, 0,
       30, 0, 0,
+      0, 150, 0,
       30, 150, 0,
-
-      // top rung
       30, 0, 0,
+
+      // top rung front
+      30, 0, 0,
+      30, 30, 0,
       100, 0, 0,
       30, 30, 0,
-      30, 30, 0,
+      100, 30, 0,
+      100, 0, 0,
+
+      // middle rung front
+      30, 60, 0,
+      30, 90, 0,
+      67, 60, 0,
+      30, 90, 0,
+      67, 90, 0,
+      67, 60, 0,
+
+      // left column back
+      0, 0, 30,
+      30, 0, 30,
+      0, 150, 30,
+      0, 150, 30,
+      30, 0, 30,
+      30, 150, 30,
+
+      // top rung back
+      30, 0, 30,
+      100, 0, 30,
+      30, 30, 30,
+      30, 30, 30,
+      100, 0, 30,
+      100, 30, 30,
+
+      // middle rung back
+      30, 60, 30,
+      67, 60, 30,
+      30, 90, 30,
+      30, 90, 30,
+      67, 60, 30,
+      67, 90, 30,
+
+      // top
+      0, 0, 0,
+      100, 0, 0,
+      100, 0, 30,
+      0, 0, 0,
+      100, 0, 30,
+      0, 0, 30,
+
+      // top rung front
       100, 0, 0,
       100, 30, 0,
+      100, 30, 30,
+      100, 0, 0,
+      100, 30, 30,
+      100, 0, 30,
 
-      // middle rung
+      // under top rung
+      30, 30, 0,
+      30, 30, 30,
+      100, 30, 30,
+      30, 30, 0,
+      100, 30, 30,
+      100, 30, 0,
+
+      // between top rung and middle
+      30, 30, 0,
+      30, 60, 30,
+      30, 30, 30,
+      30, 30, 0,
+      30, 60, 0,
+      30, 60, 30,
+
+      // top of middle rung
+      30, 60, 0,
+      67, 60, 30,
+      30, 60, 30,
       30, 60, 0,
       67, 60, 0,
-      30, 90, 0,
-      30, 90, 0,
+      67, 60, 30,
+
+      // front of middle rung
       67, 60, 0,
-      67, 90, 0
+      67, 90, 30,
+      67, 60, 30,
+      67, 60, 0,
+      67, 90, 0,
+      67, 90, 30,
+
+      // bottom of middle rung.
+      30, 90, 0,
+      30, 90, 30,
+      67, 90, 30,
+      30, 90, 0,
+      67, 90, 30,
+      67, 90, 0,
+
+      // front of bottom
+      30, 90, 0,
+      30, 150, 30,
+      30, 90, 30,
+      30, 90, 0,
+      30, 150, 0,
+      30, 150, 30,
+
+      // bottom
+      0, 150, 0,
+      0, 150, 30,
+      30, 150, 30,
+      0, 150, 0,
+      30, 150, 30,
+      30, 150, 0,
+
+      // left side
+      0, 0, 0,
+      0, 0, 30,
+      0, 150, 30,
+      0, 0, 0,
+      0, 150, 30,
+      0, 150, 0
     ]);
     //Shaders
     var vertexShader = createShader(`
@@ -257,10 +363,12 @@ function redraw() {
   pos[1] += velocity[1];
   pos[2] += velocity[2];
   //Pass data to shader
-  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
+  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
+  matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
   gl.uniformMatrix4fv(matrixLoc, false, matrix);
   //Triangle
-  gl.drawArrays(gl.TRIANGLES, 0, 18);
+  gl.drawArrays(gl.TRIANGLES, 0, 16 * 6);
   window.requestAnimationFrame(redraw);
 }
 
@@ -364,4 +472,10 @@ function keyboardHandlerUp(keyboardEvent) {
 
 function scrollHandler(scrollEvent) {
   scale += scrollEvent.deltaY / 100000;
+}
+
+function mouseHandler(mouseEvent) {
+  rotation[1] = mouseEvent.clientX / screen.width * 180;
+  rotation[0] = mouseEvent.clientY / screen.height * 180;
+
 }
