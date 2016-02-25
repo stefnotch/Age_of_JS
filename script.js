@@ -7,33 +7,6 @@ Color tutorial
 Perspective
 Matrices: https://www.khanacademy.org/math/precalculus/precalc-matrices/intro-to-matrices/v/introduction-to-the-matrix
 Matrix Math library (self made. duh)
-Create special data structure for the matrices
-[].concat.apply([], arrays);
-*/
-/**
-
-var mat1 = [
-1,2,3,4,
-4,3,2,1,
-1,1,1,1,
-2,3,4,7];
-var mat2 = [
-1,9,3,0,
-4,3,2,1,
-1,1,9,1,
-2,0,4,7];
-var returnMat = [];
-for (var y = 0; y < 4; y++) {
-  for (var x = 0; x < 4; x++) {
-   var dotProduct = 0;
-   for(var count = 0; count < 4; count++){
-    dotProduct += mat1[y * 4 + count] * mat2[count * 4 + x];
-   }
-
-   returnMat[y * 4 + x] = dotProduct;
-  }
-}
-
 */
 var gl; //WebGL lives in here!
 //Translation
@@ -41,6 +14,7 @@ var pos = [0, 0, 0],
   velocity = [0, 0, 0];
 //Rotation
 var rotation = [0, 1, 0];
+var scale = 0.005;
 var matrixLoc;
 
 var MatrixMath = {
@@ -91,6 +65,14 @@ var MatrixMath = {
       0, 1, 0, 0,
       0, 0, 1, 0,
       0, 0, 0, scale
+    ];
+  },
+  scaleDimensionsMatrix: function(scaleX,scaleY,scaleZ) {
+    return [
+      scaleX, 0, 0, 0,
+      0, scaleY, 0, 0,
+      0, 0, scaleZ, 0,
+      0, 0, 0, 1
     ];
   },
   //Working?
@@ -275,8 +257,8 @@ function redraw() {
   pos[1] += velocity[1];
   pos[2] += velocity[2];
   //Pass data to shader
-  var matrix = MatrixMath.multiply(MatrixMath.translationMatrix(pos[0], pos[1], pos[2]),MatrixMath.scaleMatrix(0.5));
-  gl.uniformMatrix4fv(matrixLoc, false, new Float32Array(matrix));
+  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  gl.uniformMatrix4fv(matrixLoc, false, matrix);
   //Triangle
   gl.drawArrays(gl.TRIANGLES, 0, 18);
   window.requestAnimationFrame(redraw);
@@ -381,5 +363,5 @@ function keyboardHandlerUp(keyboardEvent) {
 }
 
 function scrollHandler(scrollEvent) {
-  pos[3] += scrollEvent.deltaY / 100;
+  scale += scrollEvent.deltaY / 100000;
 }
