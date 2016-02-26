@@ -9,11 +9,12 @@ Matrices: https://www.khanacademy.org/math/precalculus/precalc-matrices/intro-to
 Matrix Math library (self made. duh)
 */
 var gl; //WebGL lives in here!
+var glcanvas; //Our canvas
 //Translation
 var pos = [0, 0, 0],
   velocity = [0, 0, 0];
 //Rotation
-var rotation = [0, 1, 0];
+var rotation = [0, 180, 0];
 var scale = 0.005;
 var matrixLoc;
 
@@ -170,7 +171,7 @@ var MatrixMath = {
 //Called by the body
 function start() {
   //init canvas
-  var glcanvas = document.getElementById("glcanvas");
+  glcanvas = document.getElementById("glcanvas");
   glcanvas.width = window.innerWidth;
   glcanvas.height = window.innerHeight;
   //Events
@@ -320,14 +321,20 @@ function start() {
     //Shaders
     var vertexShader = createShader(`
     attribute vec4 coordinates;
+    
     uniform mat4 u_matrix; //The Matrix!
+    
+    varying vec4 color;
     void main(void){
-      gl_Position = u_matrix * coordinates ;
+      gl_Position = u_matrix * coordinates;
+      color = coordinates;
     }`, gl.VERTEX_SHADER);
 
     var fragmentShader = createShader(`
+    precision mediump float;
+    varying vec4 color;
     void main() {
-      gl_FragColor = vec4(0, 1, 1, 1);  // green
+      gl_FragColor = vec4(color.y, 0, color.x, 1);  // green
     }`, gl.FRAGMENT_SHADER);
 
     // Put the vertex shader and fragment shader together into
@@ -362,10 +369,11 @@ function redraw() {
   pos[0] += velocity[0];
   pos[1] += velocity[1];
   pos[2] += velocity[2];
-  //Pass data to shader
+  //Our matrix
   var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
   matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  //Pass data to shader
   gl.uniformMatrix4fv(matrixLoc, false, matrix);
   //Triangle
   gl.drawArrays(gl.TRIANGLES, 0, 16 * 6);
@@ -475,7 +483,7 @@ function scrollHandler(scrollEvent) {
 }
 
 function mouseHandler(mouseEvent) {
-  rotation[1] = mouseEvent.clientX / screen.width * 180;
-  rotation[0] = mouseEvent.clientY / screen.height * 180;
+  rotation[1] = mouseEvent.clientX / glcanvas.width * 180 + 180;
+  rotation[0] = mouseEvent.clientY / glcanvas.height * 180;
 
 }
