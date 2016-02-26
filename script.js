@@ -376,9 +376,14 @@ function redraw() {
   pos[1] += velocity[1];
   pos[2] += velocity[2];
   //Our matrix
-  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
+  /*var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
   matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));*/
+  
+  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
+  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationXMatrix(rotation[0]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));
   //Pass data to shader
   gl.uniformMatrix4fv(matrixLoc, false, matrix);
@@ -454,16 +459,16 @@ function initWebGL(canvas) {
 function keyboardHandlerDown(keyboardEvent) {
   switch (keyboardEvent.code) {
     case "ArrowUp":
-      velocity[1] = 0.01;
-      break;
-    case "ArrowDown":
-      velocity[1] = -0.01;
-      break;
-    case "ArrowLeft":
       velocity[0] = -0.01;
       break;
-    case "ArrowRight":
+    case "ArrowDown":
       velocity[0] = 0.01;
+      break;
+    case "ArrowLeft":
+      velocity[2] = -0.01;
+      break;
+    case "ArrowRight":
+      velocity[2] = 0.01;
       break;
   }
 }
@@ -471,16 +476,16 @@ function keyboardHandlerDown(keyboardEvent) {
 function keyboardHandlerUp(keyboardEvent) {
   switch (keyboardEvent.code) {
     case "ArrowUp":
-      velocity[1] = 0.00;
+      velocity[0] = 0.00;
       break;
     case "ArrowDown":
-      velocity[1] = 0.00;
+      velocity[0] = 0.00;
       break;
     case "ArrowLeft":
-      velocity[0] = 0.00;
+      velocity[2] = 0.00;
       break;
     case "ArrowRight":
-      velocity[0] = 0.00;
+      velocity[2] = 0.00;
       break;
   }
 }
