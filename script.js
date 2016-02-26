@@ -4,9 +4,6 @@ git push
 */
 /*TODO 
 Color tutorial
-Perspective
-Matrices: https://www.khanacademy.org/math/precalculus/precalc-matrices/intro-to-matrices/v/introduction-to-the-matrix
-Matrix Math library (self made. duh)
 */
 var gl; //WebGL lives in here!
 var glcanvas; //Our canvas
@@ -75,6 +72,15 @@ var MatrixMath = {
       0, 0, scaleZ, 0,
       0, 0, 0, 1
     ];
+  },
+  perspectiveMatrix: function(fudgeFactor) {
+    //z to w
+    return [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, fudgeFactor,
+      0, 0, 0, 1,
+    ]
   },
   //Working?
   multiply: function(matrix1, matrix2) {
@@ -373,6 +379,7 @@ function redraw() {
   var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
   matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
+  matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));
   //Pass data to shader
   gl.uniformMatrix4fv(matrixLoc, false, matrix);
   //Triangle
@@ -484,6 +491,6 @@ function scrollHandler(scrollEvent) {
 
 function mouseHandler(mouseEvent) {
   rotation[1] = mouseEvent.clientX / glcanvas.width * 180 + 180;
-  rotation[0] = mouseEvent.clientY / glcanvas.height * 180;
+  rotation[0] = mouseEvent.clientY / glcanvas.height * 180 - 90;
 
 }
