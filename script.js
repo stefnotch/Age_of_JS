@@ -5,10 +5,8 @@ git push
 /*TODO 
 Color tutorial
 Camera
-Perlin Noise!! http://flafla2.github.io/2014/08/09/perlinnoise.html
 Matrix inverse
 http://stackoverflow.com/a/29514445/3492994
-Pregenerate the vectors!!!!!
 */
 var gl; //WebGL lives in here!
 var glcanvas; //Our canvas
@@ -17,7 +15,7 @@ var pos = [0.5, -0.3, -0.4],
   velocity = [0, 0, 0];
 //Rotation
 var rotation = [0, 180, 0];
-var scale = 0.005;
+var scale = 0.05;
 var matrixLoc;
 
 var MatrixMath = {
@@ -286,7 +284,7 @@ function start() {
   glcanvas.width = window.innerWidth;
   glcanvas.height = window.innerHeight;
   //Events
-  /*window.addEventListener('resize', () => {
+  window.addEventListener('resize', () => {
     glcanvas.width = window.innerWidth;
     glcanvas.height = window.innerHeight;
   }, false);
@@ -299,13 +297,13 @@ function start() {
     glcanvas.webkitRequestPointerLock;
   document.addEventListener("click", () => {
     glcanvas.requestPointerLock();
-  });*/
+  });
 
   //Init WebGL
   PerlinNoise.cellSize = 50;
   var noise = fractalNoise(400, 4, 2, 2);
-  //gl = initWebGL(glcanvas);
-  var ctx = glcanvas.getContext('2d');
+  gl = initWebGL(glcanvas);
+  /*var ctx = glcanvas.getContext('2d');
   for (var x = 0; x < noise.length; x++) {
     for (var y = 0; y < noise.length; y++) {
       if (noise[x][y] > 0.5) {
@@ -316,11 +314,32 @@ function start() {
       }
       ctx.fillRect(x, y, 1, 1);
     }
-  }
+  }*/
 
-  if (gl && false) {
+  if (gl) {
+    var vbo = [];
+    //Array to valid VBO data
+    for (var x = 0; x < noise.length - 1; x++) {
+      for (var y = 0; y < noise.length - 1; y++) {
+        vbo.push(x);
+        vbo.push(noise[x][y]);
+        vbo.push(y);
+        
+        
+        vbo.push(x);
+        vbo.push(noise[x][y+1]);
+        vbo.push(y+1);
+        
+        
+        vbo.push(x+1);
+        vbo.push(noise[x+1][y]);
+        vbo.push(y);
+        
+        
+      }
+    }
     //F
-    var buffer = createVBO([
+    /*var buffer = createVBO([
       // left column front
       0, 0, 0,
       0, 150, 0,
@@ -448,7 +467,9 @@ function start() {
       0, 0, 0,
       0, 150, 30,
       0, 150, 0
-    ]);
+    ]);*/
+    
+    var buffer = createVBO(vbo);
     //Shaders
     var vertexShader = createShader(`
     attribute vec4 coordinates;
@@ -512,8 +533,8 @@ function redraw() {
   matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));
   //Pass data to shader
   gl.uniformMatrix4fv(matrixLoc, false, matrix);
-  //Triangle
-  gl.drawArrays(gl.TRIANGLES, 0, 16 * 6);
+  //Triangle (Number of triangles)
+  gl.drawArrays(gl.TRIANGLES, 0, 400 * 400);
   window.requestAnimationFrame(redraw);
 }
 
