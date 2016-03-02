@@ -4,11 +4,16 @@ git push
 */
 /*TODO 
 Color tutorial
+Camera
+Perlin Noise!! http://flafla2.github.io/2014/08/09/perlinnoise.html
+Matrix inverse
+http://stackoverflow.com/a/29514445/3492994
+Pregenerate the vectors!!!!!
 */
 var gl; //WebGL lives in here!
 var glcanvas; //Our canvas
 //Translation
-var pos = [0, 0, 0],
+var pos = [0.5, -0.3, -0.4],
   velocity = [0, 0, 0];
 //Rotation
 var rotation = [0, 180, 0];
@@ -173,15 +178,115 @@ var MatrixMath = {
   }
 
 };
+var PerlinNoise = {
+  //Our noisy noise
+  noise: [],
+  //How large the cells should be (int points)
+  cellSize: 30,
+  possibleVectors: [
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+    [-1, -1],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1]
+  ],
+  vectors: [],
+  setUp: function(noiseLength) {
+    for (var i = 0; i < noiseLength; i++) {
+      this.noise[i] = new Array(noiseLength);
+    }
+    for (var i = 0; i < Math.ceil(noiseLength / this.cellSize) + 1; i++) {
+      this.vectors[i] = new Array(Math.ceil(noiseLength / this.cellSize) + 1);
+    }
+
+  },
+  perlinNoise: function(noiseLength) {
+    this.setUp(noiseLength);
+    this.genVectors();
+    for (var x = 0; x < noiseLength; x++) {
+      for (var y = 0; y < noiseLength; y++) {
+        this.noise[x][y] = this.point(x, y);
+      }
+    }
+  },
+  point: function(x, y) {
+    //Our location relative to the current cell (0.something)
+    var inCellX = (x % this.cellSize) / this.cellSize;
+    var inCellY = (y % this.cellSize) / this.cellSize;
+    x = Math.floor(x / this.cellSize);
+    y = Math.floor(y / this.cellSize);
+    //Create some random vectors (the gradient vectors)
+    var dotProcucts = [
+      this.dotProduct(this.vectors[x][y], inCellX, inCellY),
+      this.dotProduct(this.vectors[x + 1][y], inCellX - 1, inCellY),
+      this.dotProduct(this.vectors[x][y + 1], inCellX, inCellY - 1),
+      this.dotProduct(this.vectors[x + 1][y + 1], inCellX - 1, inCellY - 1),
+    ];
+
+    //Blend factor?
+    inCellX = this.smoothCurve(inCellX);
+    inCellY = this.smoothCurve(inCellY);
+
+    //Blend the top/bottom corners
+    var interpolatedx1 = this.lerp(dotProcucts[0], dotProcucts[1], inCellX);
+    var interpolatedx2 = this.lerp(dotProcucts[2], dotProcucts[3], inCellX);
+
+    //Blend the blended stuff
+    return this.lerp(interpolatedx1, interpolatedx2, inCellY);
+  },
+  genVectors: function() {
+    for (var i = 0; i < this.vectors.length; i++) {
+      for (var j = 0; j < this.vectors.length; j++) {
+        this.vectors[i][j] = Math.floor(Math.random() * this.possibleVectors.length);
+      }
+    }
+  },
+  smoothCurve: function(value) {
+    return Math.pow(value, 3) * (value * (value * 6 - 15) + 10);
+  },
+  //Linear interpolation
+  lerp: function(a, b, t) {
+    return a + t * (b - a);
+  },
+  dotProduct: function(vecID, x2, y2) {
+    return this.possibleVectors[vecID][0] * x2 + this.possibleVectors[vecID][1] * y2;
+  }
+};
+
+function fractalNoise(size, octaves, deltaFrequency, deltaAmplitude) {
+  var fNoise = [];
+  for (var i = 0; i < size; i++) {
+    fNoise[i] = new Array(size).fill(0);
+  }
+
+  var amplitude = 1;
+  for (var j = 0; j < octaves; j++) {
+    PerlinNoise.perlinNoise(size);
+    for (var x = 0; x < PerlinNoise.noise.length; x++) {
+      for (var y = 0; y < PerlinNoise.noise[x].length; y++) {
+        fNoise[x][y] += PerlinNoise.noise[x][y] * amplitude;
+
+      }
+    }
+    amplitude /= deltaAmplitude;
+    PerlinNoise.cellSize /= deltaFrequency;
+  }
+  return fNoise;
+}
 
 //Called by the body
+
+
 function start() {
   //init canvas
   glcanvas = document.getElementById("glcanvas");
   glcanvas.width = window.innerWidth;
   glcanvas.height = window.innerHeight;
   //Events
-  window.addEventListener('resize', () => {
+  /*window.addEventListener('resize', () => {
     glcanvas.width = window.innerWidth;
     glcanvas.height = window.innerHeight;
   }, false);
@@ -189,11 +294,31 @@ function start() {
   window.addEventListener("keyup", keyboardHandlerUp);
   window.addEventListener("wheel", scrollHandler);
   window.addEventListener("mousemove", mouseHandler);
+  glcanvas.requestPointerLock = glcanvas.requestPointerLock ||
+    glcanvas.mozRequestPointerLock ||
+    glcanvas.webkitRequestPointerLock;
+  document.addEventListener("click", () => {
+    glcanvas.requestPointerLock();
+  });*/
 
   //Init WebGL
-  gl = initWebGL(glcanvas);
+  PerlinNoise.cellSize = 50;
+  var noise = fractalNoise(400, 4, 2, 2);
+  //gl = initWebGL(glcanvas);
+  var ctx = glcanvas.getContext('2d');
+  for (var x = 0; x < noise.length; x++) {
+    for (var y = 0; y < noise.length; y++) {
+      if (noise[x][y] > 0.5) {
+        ctx.fillStyle = 'rgba(' + Math.floor(noise[x][y] * 300) + ',' + Math.floor(noise[x][y] * 300) + ',' + Math.floor(noise[x][y] * 300) + ',' + 1 + ')';
+      }
+      else {
+        ctx.fillStyle = 'rgba(' + 0 + ',' + Math.floor(noise[x][y] * 255) + ',' + (Math.floor(noise[x][y] * -255) + 30) + ',' + 1 + ')';
+      }
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
 
-  if (gl) {
+  if (gl && false) {
     //F
     var buffer = createVBO([
       // left column front
@@ -380,9 +505,9 @@ function redraw() {
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
   matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));*/
-  
+
   var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
+  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationXMatrix(rotation[0]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));
   //Pass data to shader
@@ -457,19 +582,41 @@ function initWebGL(canvas) {
 }
 //User input
 function keyboardHandlerDown(keyboardEvent) {
+
+  var offset = 0.01;
+
+  //Next you will need to get the camera's X and Y rotation values (in degrees!)
+
+  var pitch = rotation[0] % 360;
+  var yaw = rotation[1] % 360;
+
+  //Then we convert those values into radians
+  var pitchRadian = pitch * (Math.PI / 180); // X rotation
+  var yawRadian = yaw * (Math.PI / 180); // Y rotation
+
+  //Now here is where we determine the new position:
+
+  var newPosX = offset * Math.sin(yawRadian) * Math.cos(pitchRadian);
+  var newPosY = offset * -Math.sin(pitchRadian);
+  var newPosZ = offset * Math.cos(yawRadian) * Math.cos(pitchRadian);
+
   switch (keyboardEvent.code) {
     case "ArrowUp":
-      velocity[0] = -0.01;
+      velocity[0] = newPosX;
+      velocity[1] = newPosY;
+      velocity[2] = -newPosZ;
       break;
     case "ArrowDown":
-      velocity[0] = 0.01;
+      velocity[0] = -newPosX;
+      velocity[1] = -newPosY;
+      velocity[2] = newPosZ;
       break;
-    case "ArrowLeft":
-      velocity[2] = -0.01;
-      break;
-    case "ArrowRight":
-      velocity[2] = 0.01;
-      break;
+      /*case "ArrowLeft":
+        rotation[1]++;
+        break;
+      case "ArrowRight":
+        rotation[1]--;
+        break;*/
   }
 }
 
@@ -477,16 +624,20 @@ function keyboardHandlerUp(keyboardEvent) {
   switch (keyboardEvent.code) {
     case "ArrowUp":
       velocity[0] = 0.00;
+      velocity[1] = 0.00;
+      velocity[2] = 0.00;
       break;
     case "ArrowDown":
       velocity[0] = 0.00;
-      break;
-    case "ArrowLeft":
+      velocity[1] = 0.00;
       velocity[2] = 0.00;
       break;
-    case "ArrowRight":
-      velocity[2] = 0.00;
-      break;
+      /*case "ArrowLeft":
+        velocity[2] = 0.00;
+        break;
+      case "ArrowRight":
+        velocity[2] = 0.00;
+        break;*/
   }
 }
 
@@ -495,7 +646,8 @@ function scrollHandler(scrollEvent) {
 }
 
 function mouseHandler(mouseEvent) {
-  rotation[1] = mouseEvent.clientX / glcanvas.width * 180 + 180;
-  rotation[0] = mouseEvent.clientY / glcanvas.height * 180 - 90;
-
+  /*rotation[1] = mouseEvent.clientX / glcanvas.width * 180 + 180;
+  rotation[0] = mouseEvent.clientY / glcanvas.height * 180 - 90;*/
+  rotation[1] -= mouseEvent.movementX;
+  rotation[0] -= mouseEvent.movementY;
 }
