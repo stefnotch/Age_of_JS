@@ -11,10 +11,10 @@ http://stackoverflow.com/a/29514445/3492994
 var gl; //WebGL lives in here!
 var glcanvas; //Our canvas
 //Translation
-var pos = [0.5, -0.3, -0.4],
+var pos = [0, -6, 0],
   velocity = [0, 0, 0];
 //Rotation
-var rotation = [0, 180, 0];
+var rotation = [35, 135, 0];
 var scale = 0.05;
 var matrixLoc;
 
@@ -85,7 +85,17 @@ var MatrixMath = {
       0, 0, 0, 1,
     ]
   },
-  //Working?
+  makePerspective: function(fieldOfViewInRadians, aspect, near, far) {
+    var f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewInRadians);
+    var rangeInv = 1.0 / (near - far);
+
+    return [
+      f / aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (near + far) * rangeInv, -1,
+      0, 0, near * far * rangeInv * 2, 0
+    ];
+  },
   multiply: function(matrix1, matrix2) {
     if (matrix1.length != 16 || matrix2.length != 16) {
       throw Error("The matrices need to be 4 * 4.");
@@ -122,59 +132,7 @@ var MatrixMath = {
       }
     }
     return transposedMatrix;
-  },
-  fastMultiply: function(a, b) {
-    var a00 = a[0 * 4 + 0];
-    var a01 = a[0 * 4 + 1];
-    var a02 = a[0 * 4 + 2];
-    var a03 = a[0 * 4 + 3];
-    var a10 = a[1 * 4 + 0];
-    var a11 = a[1 * 4 + 1];
-    var a12 = a[1 * 4 + 2];
-    var a13 = a[1 * 4 + 3];
-    var a20 = a[2 * 4 + 0];
-    var a21 = a[2 * 4 + 1];
-    var a22 = a[2 * 4 + 2];
-    var a23 = a[2 * 4 + 3];
-    var a30 = a[3 * 4 + 0];
-    var a31 = a[3 * 4 + 1];
-    var a32 = a[3 * 4 + 2];
-    var a33 = a[3 * 4 + 3];
-    var b00 = b[0 * 4 + 0];
-    var b01 = b[0 * 4 + 1];
-    var b02 = b[0 * 4 + 2];
-    var b03 = b[0 * 4 + 3];
-    var b10 = b[1 * 4 + 0];
-    var b11 = b[1 * 4 + 1];
-    var b12 = b[1 * 4 + 2];
-    var b13 = b[1 * 4 + 3];
-    var b20 = b[2 * 4 + 0];
-    var b21 = b[2 * 4 + 1];
-    var b22 = b[2 * 4 + 2];
-    var b23 = b[2 * 4 + 3];
-    var b30 = b[3 * 4 + 0];
-    var b31 = b[3 * 4 + 1];
-    var b32 = b[3 * 4 + 2];
-    var b33 = b[3 * 4 + 3];
-    return [a00 * b00 + a01 * b10 + a02 * b20 + a03 * b30,
-      a00 * b01 + a01 * b11 + a02 * b21 + a03 * b31,
-      a00 * b02 + a01 * b12 + a02 * b22 + a03 * b32,
-      a00 * b03 + a01 * b13 + a02 * b23 + a03 * b33,
-      a10 * b00 + a11 * b10 + a12 * b20 + a13 * b30,
-      a10 * b01 + a11 * b11 + a12 * b21 + a13 * b31,
-      a10 * b02 + a11 * b12 + a12 * b22 + a13 * b32,
-      a10 * b03 + a11 * b13 + a12 * b23 + a13 * b33,
-      a20 * b00 + a21 * b10 + a22 * b20 + a23 * b30,
-      a20 * b01 + a21 * b11 + a22 * b21 + a23 * b31,
-      a20 * b02 + a21 * b12 + a22 * b22 + a23 * b32,
-      a20 * b03 + a21 * b13 + a22 * b23 + a23 * b33,
-      a30 * b00 + a31 * b10 + a32 * b20 + a33 * b30,
-      a30 * b01 + a31 * b11 + a32 * b21 + a33 * b31,
-      a30 * b02 + a31 * b12 + a32 * b22 + a33 * b32,
-      a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33
-    ];
   }
-
 };
 var PerlinNoise = {
   //Our noisy noise
@@ -295,26 +253,14 @@ function start() {
   glcanvas.requestPointerLock = glcanvas.requestPointerLock ||
     glcanvas.mozRequestPointerLock ||
     glcanvas.webkitRequestPointerLock;
-  document.addEventListener("click", () => {
+  window.addEventListener("click", () => {
     glcanvas.requestPointerLock();
   });
 
   //Init WebGL
-  PerlinNoise.cellSize = 50;
-  var noise = fractalNoise(400, 4, 2, 2);
+  PerlinNoise.cellSize = 60;
+  var noise = fractalNoise(400, 6, 2, 2);
   gl = initWebGL(glcanvas);
-  /*var ctx = glcanvas.getContext('2d');
-  for (var x = 0; x < noise.length; x++) {
-    for (var y = 0; y < noise.length; y++) {
-      if (noise[x][y] > 0.5) {
-        ctx.fillStyle = 'rgba(' + Math.floor(noise[x][y] * 300) + ',' + Math.floor(noise[x][y] * 300) + ',' + Math.floor(noise[x][y] * 300) + ',' + 1 + ')';
-      }
-      else {
-        ctx.fillStyle = 'rgba(' + 0 + ',' + Math.floor(noise[x][y] * 255) + ',' + (Math.floor(noise[x][y] * -255) + 30) + ',' + 1 + ')';
-      }
-      ctx.fillRect(x, y, 1, 1);
-    }
-  }*/
 
   if (gl) {
     var vbo = [];
@@ -322,20 +268,29 @@ function start() {
     for (var x = 0; x < noise.length - 1; x++) {
       for (var y = 0; y < noise.length - 1; y++) {
         vbo.push(x);
-        vbo.push(noise[x][y]);
+        vbo.push(noise[x][y] * 40);
         vbo.push(y);
-        
-        
+
         vbo.push(x);
-        vbo.push(noise[x][y+1]);
-        vbo.push(y+1);
-        
-        
-        vbo.push(x+1);
-        vbo.push(noise[x+1][y]);
+        vbo.push(noise[x][y + 1] * 40);
+        vbo.push(y + 1);
+
+        vbo.push(x + 1);
+        vbo.push(noise[x + 1][y] * 40);
         vbo.push(y);
-        
-        
+
+
+        vbo.push(x);
+        vbo.push(noise[x][y + 1] * 40);
+        vbo.push(y + 1);
+
+        vbo.push(x + 1);
+        vbo.push(noise[x + 1][y] * 40);
+        vbo.push(y);
+
+        vbo.push(x + 1);
+        vbo.push(noise[x + 1][y + 1] * 40);
+        vbo.push(y + 1);
       }
     }
     //F
@@ -468,7 +423,7 @@ function start() {
       0, 150, 30,
       0, 150, 0
     ]);*/
-    
+    console.log(vbo.length);
     var buffer = createVBO(vbo);
     //Shaders
     var vertexShader = createShader(`
@@ -486,7 +441,13 @@ function start() {
     precision mediump float;
     varying vec4 color;
     void main() {
-      gl_FragColor = vec4(color.y, 0, color.x, 1);  // green
+    if(color.y < -25.0) {
+      gl_FragColor = vec4(-color.y/40.0, -color.y/40.0, -color.y/40.0, 1);  // white
+    } else if(color.y < 0.0) {
+      gl_FragColor = vec4(0, -color.y/30.0, 0, 1);  // green
+    } else {
+      gl_FragColor = vec4(0, 0, color.y/10.0, 1);  // blue
+    }
     }`, gl.FRAGMENT_SHADER);
 
     // Put the vertex shader and fragment shader together into
@@ -502,7 +463,7 @@ function start() {
     // hardware, so we can start drawing
 
     // Clear the drawing surface
-    gl.clearColor(1.0, 1.0, 0.0, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     // Tell WebGL which shader program to use
     gl.useProgram(shaderProgram);
     //Feed the shader
@@ -530,12 +491,12 @@ function redraw() {
   var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]));
   matrix = MatrixMath.multiply(matrix, MatrixMath.rotationXMatrix(rotation[0]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));
-  //Pass data to shader
-  gl.uniformMatrix4fv(matrixLoc, false, matrix);
-  //Triangle (Number of triangles)
-  gl.drawArrays(gl.TRIANGLES, 0, 400 * 400);
-  window.requestAnimationFrame(redraw);
+  matrix = MatrixMath.multiply(matrix, MatrixMath.makePerspective(1, glcanvas.clientWidth / glcanvas.clientHeight, 1, 100));
+//Pass data to shader
+gl.uniformMatrix4fv(matrixLoc, false, matrix);
+//Triangle (Number of triangles)
+gl.drawArrays(gl.TRIANGLES, 0, 2865618 / 3);
+window.requestAnimationFrame(redraw);
 }
 
 function createVBO(vertices) {
@@ -604,7 +565,7 @@ function initWebGL(canvas) {
 //User input
 function keyboardHandlerDown(keyboardEvent) {
 
-  var offset = 0.01;
+  var offset = 0.1;
 
   //Next you will need to get the camera's X and Y rotation values (in degrees!)
 
