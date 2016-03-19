@@ -11,14 +11,20 @@ http://stackoverflow.com/a/29514445/3492994
 var gl; //WebGL lives in here!
 var glcanvas; //Our canvas
 //Translation
-var pos = [0, -6, 0],
+var pos = [0, 0, 0],
   velocity = [0, 0, 0];
 //Rotation
-var rotation = [35, 135, 0];
+//var rotation = [0, 0, 0];
+var pitch = 0,
+  yaw = 0;
 var scale = 0.05;
-var matrixLoc;
+
+var objectsToDraw = [];
 
 var MatrixMath = {
+  degToRad: function(angleInDeg) {
+    return angleInDeg * Math.PI / 180;
+  },
   rotationXMatrix: function(angle) {
     var angleInRadians = angle * Math.PI / 180;
     var c = Math.cos(angleInRadians);
@@ -132,6 +138,90 @@ var MatrixMath = {
       }
     }
     return transposedMatrix;
+  },
+  makeInverseCrap: function(m) {
+    var m00 = m[0 * 4 + 0];
+    var m01 = m[0 * 4 + 1];
+    var m02 = m[0 * 4 + 2];
+    var m03 = m[0 * 4 + 3];
+    var m10 = m[1 * 4 + 0];
+    var m11 = m[1 * 4 + 1];
+    var m12 = m[1 * 4 + 2];
+    var m13 = m[1 * 4 + 3];
+    var m20 = m[2 * 4 + 0];
+    var m21 = m[2 * 4 + 1];
+    var m22 = m[2 * 4 + 2];
+    var m23 = m[2 * 4 + 3];
+    var m30 = m[3 * 4 + 0];
+    var m31 = m[3 * 4 + 1];
+    var m32 = m[3 * 4 + 2];
+    var m33 = m[3 * 4 + 3];
+    var tmp_0 = m22 * m33;
+    var tmp_1 = m32 * m23;
+    var tmp_2 = m12 * m33;
+    var tmp_3 = m32 * m13;
+    var tmp_4 = m12 * m23;
+    var tmp_5 = m22 * m13;
+    var tmp_6 = m02 * m33;
+    var tmp_7 = m32 * m03;
+    var tmp_8 = m02 * m23;
+    var tmp_9 = m22 * m03;
+    var tmp_10 = m02 * m13;
+    var tmp_11 = m12 * m03;
+    var tmp_12 = m20 * m31;
+    var tmp_13 = m30 * m21;
+    var tmp_14 = m10 * m31;
+    var tmp_15 = m30 * m11;
+    var tmp_16 = m10 * m21;
+    var tmp_17 = m20 * m11;
+    var tmp_18 = m00 * m31;
+    var tmp_19 = m30 * m01;
+    var tmp_20 = m00 * m21;
+    var tmp_21 = m20 * m01;
+    var tmp_22 = m00 * m11;
+    var tmp_23 = m10 * m01;
+
+    var t0 = (tmp_0 * m11 + tmp_3 * m21 + tmp_4 * m31) -
+      (tmp_1 * m11 + tmp_2 * m21 + tmp_5 * m31);
+    var t1 = (tmp_1 * m01 + tmp_6 * m21 + tmp_9 * m31) -
+      (tmp_0 * m01 + tmp_7 * m21 + tmp_8 * m31);
+    var t2 = (tmp_2 * m01 + tmp_7 * m11 + tmp_10 * m31) -
+      (tmp_3 * m01 + tmp_6 * m11 + tmp_11 * m31);
+    var t3 = (tmp_5 * m01 + tmp_8 * m11 + tmp_11 * m21) -
+      (tmp_4 * m01 + tmp_9 * m11 + tmp_10 * m21);
+
+    var d = 1.0 / (m00 * t0 + m10 * t1 + m20 * t2 + m30 * t3);
+
+    return [
+      d * t0,
+      d * t1,
+      d * t2,
+      d * t3,
+      d * ((tmp_1 * m10 + tmp_2 * m20 + tmp_5 * m30) -
+        (tmp_0 * m10 + tmp_3 * m20 + tmp_4 * m30)),
+      d * ((tmp_0 * m00 + tmp_7 * m20 + tmp_8 * m30) -
+        (tmp_1 * m00 + tmp_6 * m20 + tmp_9 * m30)),
+      d * ((tmp_3 * m00 + tmp_6 * m10 + tmp_11 * m30) -
+        (tmp_2 * m00 + tmp_7 * m10 + tmp_10 * m30)),
+      d * ((tmp_4 * m00 + tmp_9 * m10 + tmp_10 * m20) -
+        (tmp_5 * m00 + tmp_8 * m10 + tmp_11 * m20)),
+      d * ((tmp_12 * m13 + tmp_15 * m23 + tmp_16 * m33) -
+        (tmp_13 * m13 + tmp_14 * m23 + tmp_17 * m33)),
+      d * ((tmp_13 * m03 + tmp_18 * m23 + tmp_21 * m33) -
+        (tmp_12 * m03 + tmp_19 * m23 + tmp_20 * m33)),
+      d * ((tmp_14 * m03 + tmp_19 * m13 + tmp_22 * m33) -
+        (tmp_15 * m03 + tmp_18 * m13 + tmp_23 * m33)),
+      d * ((tmp_17 * m03 + tmp_20 * m13 + tmp_23 * m23) -
+        (tmp_16 * m03 + tmp_21 * m13 + tmp_22 * m23)),
+      d * ((tmp_14 * m22 + tmp_17 * m32 + tmp_13 * m12) -
+        (tmp_16 * m32 + tmp_12 * m12 + tmp_15 * m22)),
+      d * ((tmp_20 * m32 + tmp_12 * m02 + tmp_19 * m22) -
+        (tmp_18 * m22 + tmp_21 * m32 + tmp_13 * m02)),
+      d * ((tmp_18 * m12 + tmp_23 * m32 + tmp_15 * m02) -
+        (tmp_22 * m32 + tmp_14 * m02 + tmp_19 * m12)),
+      d * ((tmp_22 * m22 + tmp_16 * m02 + tmp_21 * m12) -
+        (tmp_20 * m12 + tmp_23 * m22 + tmp_17 * m02))
+    ];
   }
 };
 var PerlinNoise = {
@@ -237,200 +327,40 @@ function fractalNoise(size, octaves, deltaFrequency, deltaAmplitude) {
 
 
 function start() {
-  //init canvas
-  glcanvas = document.getElementById("glcanvas");
-  glcanvas.width = window.innerWidth;
-  glcanvas.height = window.innerHeight;
-  //Events
-  window.addEventListener('resize', () => {
-    glcanvas.width = window.innerWidth;
-    glcanvas.height = window.innerHeight;
-  }, false);
-  window.addEventListener("keydown", keyboardHandlerDown);
-  window.addEventListener("keyup", keyboardHandlerUp);
-  window.addEventListener("wheel", scrollHandler);
-  window.addEventListener("mousemove", mouseHandler);
-  glcanvas.requestPointerLock = glcanvas.requestPointerLock ||
-    glcanvas.mozRequestPointerLock ||
-    glcanvas.webkitRequestPointerLock;
-  window.addEventListener("click", () => {
-    glcanvas.requestPointerLock();
-  });
+  initCanvas("glcanvas");
 
   //Init WebGL
   PerlinNoise.cellSize = 60;
-  var noise = fractalNoise(400, 6, 2, 2);
+  var noise = fractalNoise(500, 6, 2, 2);
   gl = initWebGL(glcanvas);
 
   if (gl) {
     var vbo = [];
+    var heightScale = 10;
+    var sizeScale = 5;
     //Array to valid VBO data
     for (var x = 0; x < noise.length - 1; x++) {
-      for (var y = 0; y < noise.length - 1; y++) {
-        vbo.push(x);
-        vbo.push(noise[x][y] * 40);
-        vbo.push(y);
+      for (var z = 0; z < noise.length; z++) {
+        vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
+        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
 
-        vbo.push(x);
-        vbo.push(noise[x][y + 1] * 40);
-        vbo.push(y + 1);
-
-        vbo.push(x + 1);
-        vbo.push(noise[x + 1][y] * 40);
-        vbo.push(y);
+        /*vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
+        vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
+        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
 
 
-        vbo.push(x);
-        vbo.push(noise[x][y + 1] * 40);
-        vbo.push(y + 1);
+        vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
+        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
+        vbo.push((x + 1) / sizeScale, noise[x + 1][z + 1] * heightScale, (z + 1) / sizeScale);*/
 
-        vbo.push(x + 1);
-        vbo.push(noise[x + 1][y] * 40);
-        vbo.push(y);
-
-        vbo.push(x + 1);
-        vbo.push(noise[x + 1][y + 1] * 40);
-        vbo.push(y + 1);
       }
+      //Degenerate triangle
+      vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
     }
-    //F
-    /*var buffer = createVBO([
-      // left column front
-      0, 0, 0,
-      0, 150, 0,
-      30, 0, 0,
-      0, 150, 0,
-      30, 150, 0,
-      30, 0, 0,
 
-      // top rung front
-      30, 0, 0,
-      30, 30, 0,
-      100, 0, 0,
-      30, 30, 0,
-      100, 30, 0,
-      100, 0, 0,
-
-      // middle rung front
-      30, 60, 0,
-      30, 90, 0,
-      67, 60, 0,
-      30, 90, 0,
-      67, 90, 0,
-      67, 60, 0,
-
-      // left column back
-      0, 0, 30,
-      30, 0, 30,
-      0, 150, 30,
-      0, 150, 30,
-      30, 0, 30,
-      30, 150, 30,
-
-      // top rung back
-      30, 0, 30,
-      100, 0, 30,
-      30, 30, 30,
-      30, 30, 30,
-      100, 0, 30,
-      100, 30, 30,
-
-      // middle rung back
-      30, 60, 30,
-      67, 60, 30,
-      30, 90, 30,
-      30, 90, 30,
-      67, 60, 30,
-      67, 90, 30,
-
-      // top
-      0, 0, 0,
-      100, 0, 0,
-      100, 0, 30,
-      0, 0, 0,
-      100, 0, 30,
-      0, 0, 30,
-
-      // top rung front
-      100, 0, 0,
-      100, 30, 0,
-      100, 30, 30,
-      100, 0, 0,
-      100, 30, 30,
-      100, 0, 30,
-
-      // under top rung
-      30, 30, 0,
-      30, 30, 30,
-      100, 30, 30,
-      30, 30, 0,
-      100, 30, 30,
-      100, 30, 0,
-
-      // between top rung and middle
-      30, 30, 0,
-      30, 60, 30,
-      30, 30, 30,
-      30, 30, 0,
-      30, 60, 0,
-      30, 60, 30,
-
-      // top of middle rung
-      30, 60, 0,
-      67, 60, 30,
-      30, 60, 30,
-      30, 60, 0,
-      67, 60, 0,
-      67, 60, 30,
-
-      // front of middle rung
-      67, 60, 0,
-      67, 90, 30,
-      67, 60, 30,
-      67, 60, 0,
-      67, 90, 0,
-      67, 90, 30,
-
-      // bottom of middle rung.
-      30, 90, 0,
-      30, 90, 30,
-      67, 90, 30,
-      30, 90, 0,
-      67, 90, 30,
-      67, 90, 0,
-
-      // front of bottom
-      30, 90, 0,
-      30, 150, 30,
-      30, 90, 30,
-      30, 90, 0,
-      30, 150, 0,
-      30, 150, 30,
-
-      // bottom
-      0, 150, 0,
-      0, 150, 30,
-      30, 150, 30,
-      0, 150, 0,
-      30, 150, 30,
-      30, 150, 0,
-
-      // left side
-      0, 0, 0,
-      0, 0, 30,
-      0, 150, 30,
-      0, 0, 0,
-      0, 150, 30,
-      0, 150, 0
-    ]);*/
-    console.log(vbo.length);
-    var buffer = createVBO(vbo);
-    //Shaders
     var vertexShader = createShader(`
     attribute vec4 coordinates;
-    
     uniform mat4 u_matrix; //The Matrix!
-    
     varying vec4 color;
     void main(void){
       gl_Position = u_matrix * coordinates;
@@ -441,36 +371,59 @@ function start() {
     precision mediump float;
     varying vec4 color;
     void main() {
-    if(color.y < -25.0) {
-      gl_FragColor = vec4(-color.y/40.0, -color.y/40.0, -color.y/40.0, 1);  // white
-    } else if(color.y < 0.0) {
-      gl_FragColor = vec4(0, -color.y/30.0, 0, 1);  // green
+    if(color.y > 7.0) {
+      gl_FragColor = vec4(color.y/10.0, color.y/10.0, color.y/10.0, 1);  // white
+    } else if(color.y > 0.0) {
+      gl_FragColor = vec4(0, color.y/9.0, 0, 1);  // green
+    } else if(color.y >= -1.1){
+      gl_FragColor = vec4(0, 0, 1, 0.5);  // alpha + blue
     } else {
-      gl_FragColor = vec4(0, 0, color.y/10.0, 1);  // blue
+      gl_FragColor = vec4(0, 0, 0.5+color.y/15.0, 1);  // blue
     }
     }`, gl.FRAGMENT_SHADER);
 
     // Put the vertex shader and fragment shader together into
     // a complete program
-    var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS))
-      throw new Error(gl.getProgramInfoLog(shaderProgram));
+    var shaderProgram = createShaderProgram(vertexShader, fragmentShader);
+    
+    addObjectToDraw(shaderProgram, vbo, "coordinates", "u_matrix");
+    //Map
 
+
+    var water = [];
+    water.push(0, -1, 0);
+    water.push(noise.length / sizeScale, -1, 0);
+    water.push(0, -1, noise.length / sizeScale);
+
+    water.push(noise.length / sizeScale, -1, noise.length / sizeScale);
+    water.push(noise.length / sizeScale, -1, 0);
+    water.push(0, -1, noise.length / sizeScale);
+
+    water = createVBO(water);
+    //Shaders
+
+
+    var waterVertexShader = createShader(`
+    attribute vec4 coordinates;
+    uniform mat4 u_matrix; //The Matrix!
+    void main(void){
+      gl_Position = u_matrix * coordinates;
+    }
+    `, gl.VERTEX_SHADER);
+    var waterFragmentShader = createShader(`
+    void main() {
+      gl_FragColor = vec4(0, 0, 1, 0.5);
+    }`, gl.FRAGMENT_SHADER);
+
+    var waterShaderProgram = createShaderProgram(waterVertexShader, waterFragmentShader);
     // Everything we need has now been copied to the graphics
     // hardware, so we can start drawing
 
     // Clear the drawing surface
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // Tell WebGL which shader program to use
-    gl.useProgram(shaderProgram);
-    //Feed the shader
-    feedShader(shaderProgram, buffer, "coordinates");
     //Get the uniform variables
-    matrixLoc = gl.getUniformLocation(shaderProgram, "u_matrix");
     gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     //gl.enable(gl.CULL_FACE);
 
     window.requestAnimationFrame(redraw);
@@ -479,26 +432,43 @@ function start() {
 
 function redraw() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
   pos[0] += velocity[0];
   pos[1] += velocity[1];
   pos[2] += velocity[2];
-  //Our matrix
-  /*var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.rotationXMatrix(rotation[0]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]))
-  matrix = MatrixMath.multiply(matrix, MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.perspectiveMatrix(1));*/
 
-  var matrix = MatrixMath.multiply(MatrixMath.scaleDimensionsMatrix(scale, -scale, scale), MatrixMath.translationMatrix(pos[0], pos[1], pos[2]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationYMatrix(rotation[1]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.rotationXMatrix(rotation[0]));
-  matrix = MatrixMath.multiply(matrix, MatrixMath.makePerspective(1, glcanvas.clientWidth / glcanvas.clientHeight, 1, 100));
-//Pass data to shader
-gl.uniformMatrix4fv(matrixLoc, false, matrix);
-//Triangle (Number of triangles)
-gl.drawArrays(gl.TRIANGLES, 0, 2865618 / 3);
-window.requestAnimationFrame(redraw);
+
+  var camMat = MatrixMath.multiply(MatrixMath.rotationXMatrix(pitch), MatrixMath.rotationYMatrix(yaw));
+  camMat = MatrixMath.multiply(camMat, MatrixMath.translationMatrix(-pos[0], -pos[1], -pos[2]));
+  var viewMat = MatrixMath.makeInverseCrap(camMat);
+
+  var matrix = MatrixMath.multiply(viewMat, MatrixMath.makePerspective(1, glcanvas.clientWidth / glcanvas.clientHeight, 0.5, 1000));
+  
+  
+  objectsToDraw.forEach((object)=>{
+    //What shader program
+    gl.useProgram(object.shaderProgram);
+    //What vertices should get used by the GPU
+    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffer);
+    //Now, let's make our shader able to use the vertices
+    setAttribute(object.attribute);
+    //Uniforms such as the matrix
+    gl.uniformMatrix4fv(object.uniforms, false, matrix);
+    //Draw the object
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, object.bufferLength / 3);
+  });
+  //Triangle (Number of triangles)
+  //gl.enable(gl.BLEND);
+  //gl.disable(gl.DEPTH_TEST);
+  
+  //gl.enable(gl.DEPTH_TEST);
+  //gl.disable(gl.BLEND);
+  window.requestAnimationFrame(redraw);
 }
 
+/** 
+ * Creates and uploads a VBO to the GPU
+ */
 function createVBO(vertices) {
   // Copy an array of data points forming a triangle to the
   // graphics hardware
@@ -518,25 +488,71 @@ function createShader(shaderCode, shaderType) {
   return shader;
 }
 
-//uniform variables inside the shaders
-function feedShader(shaderProgram, dataBuffer, name) {
-  // Tell WebGL that the data from the array of triangle
-  // coordinates that we've already copied to the graphics
-  // hardware should be fed to the vertex shader as the
-  // parameter "coordinates"
-  var positionLocation = gl.getAttribLocation(shaderProgram, name);
-  gl.enableVertexAttribArray(positionLocation);
-  gl.bindBuffer(gl.ARRAY_BUFFER, dataBuffer);
+function createShaderProgram(vertexShader, fragmentShader) {
+  // Put the vertex shader and fragment shader together into
+  // a complete program
+  var shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS))
+    throw new Error(gl.getProgramInfoLog(shaderProgram));
+
+  return shaderProgram;
+}
+/**
+ * Sets the current attribute for a given shader
+ */
+function setAttribute(attribute) {
+  
+  gl.enableVertexAttribArray(attribute);
   var numComponents = 3; // (x, y, z)
   var type = gl.FLOAT;
   var normalize = false; // leave the values as they are
   var offset = 0; // start at the beginning of the buffer
   var stride = 0; // how many bytes to move to the next vertex
   // 0 = use the correct stride for type and numComponents
-  gl.vertexAttribPointer(positionLocation, numComponents, type, normalize, stride, offset);
+  gl.vertexAttribPointer(attribute, numComponents, type, normalize, stride, offset);
 
-  return positionLocation; //Location of the stuff that is being fed to the shader
+  //return positionLocation; //Location of the stuff that is being fed to the shader
 }
+
+function addObjectToDraw(shaderProgram, vbo, attributeName, uniformName){
+  var buffer = createVBO(vbo);
+  objectsToDraw.push({
+      shaderProgram: shaderProgram,
+      buffer: buffer,
+      bufferLength: vbo.length,
+      attribute: gl.getAttribLocation(shaderProgram, attributeName),
+      uniforms: gl.getUniformLocation(shaderProgram, uniformName)
+    });
+  
+}
+/**
+ * OMG! C9 rocks!
+ */
+function initCanvas(canvasName) {
+  //init canvas
+  glcanvas = document.getElementById(canvasName);
+  glcanvas.width = window.innerWidth;
+  glcanvas.height = window.innerHeight;
+  //Events
+  window.addEventListener('resize', () => {
+    glcanvas.width = window.innerWidth;
+    glcanvas.height = window.innerHeight;
+  }, false);
+  window.addEventListener("keydown", keyboardHandlerDown);
+  window.addEventListener("keyup", keyboardHandlerUp);
+  window.addEventListener("wheel", scrollHandler);
+  window.addEventListener("mousemove", mouseHandler);
+  glcanvas.requestPointerLock = glcanvas.requestPointerLock ||
+    glcanvas.mozRequestPointerLock ||
+    glcanvas.webkitRequestPointerLock;
+  window.addEventListener("click", () => {
+    glcanvas.requestPointerLock();
+  });
+}
+
 //Create WebGL
 function initWebGL(canvas) {
   gl = null;
@@ -564,34 +580,18 @@ function initWebGL(canvas) {
 }
 //User input
 function keyboardHandlerDown(keyboardEvent) {
-
-  var offset = 0.1;
-
-  //Next you will need to get the camera's X and Y rotation values (in degrees!)
-
-  var pitch = rotation[0] % 360;
-  var yaw = rotation[1] % 360;
-
-  //Then we convert those values into radians
-  var pitchRadian = pitch * (Math.PI / 180); // X rotation
-  var yawRadian = yaw * (Math.PI / 180); // Y rotation
-
-  //Now here is where we determine the new position:
-
-  var newPosX = offset * Math.sin(yawRadian) * Math.cos(pitchRadian);
-  var newPosY = offset * -Math.sin(pitchRadian);
-  var newPosZ = offset * Math.cos(yawRadian) * Math.cos(pitchRadian);
-
+  var yawRad = MatrixMath.degToRad(yaw);
+  var pitchRad = MatrixMath.degToRad(pitch);
   switch (keyboardEvent.code) {
     case "ArrowUp":
-      velocity[0] = newPosX;
-      velocity[1] = newPosY;
-      velocity[2] = -newPosZ;
+      velocity[0] = Math.sin(yawRad) * Math.cos(pitchRad);
+      velocity[1] = -Math.sin(pitchRad);
+      velocity[2] = Math.cos(yawRad) * Math.cos(pitchRad);
       break;
     case "ArrowDown":
-      velocity[0] = -newPosX;
-      velocity[1] = -newPosY;
-      velocity[2] = newPosZ;
+      velocity[0] = -Math.sin(yawRad) * Math.cos(pitchRad);
+      velocity[1] = Math.sin(pitchRad);
+      velocity[2] = -Math.cos(yawRad) * Math.cos(pitchRad);
       break;
       /*case "ArrowLeft":
         rotation[1]++;
@@ -605,14 +605,10 @@ function keyboardHandlerDown(keyboardEvent) {
 function keyboardHandlerUp(keyboardEvent) {
   switch (keyboardEvent.code) {
     case "ArrowUp":
-      velocity[0] = 0.00;
-      velocity[1] = 0.00;
-      velocity[2] = 0.00;
-      break;
     case "ArrowDown":
-      velocity[0] = 0.00;
-      velocity[1] = 0.00;
-      velocity[2] = 0.00;
+      velocity[0] = 0;
+      velocity[1] = 0;
+      velocity[2] = 0;
       break;
       /*case "ArrowLeft":
         velocity[2] = 0.00;
@@ -628,8 +624,6 @@ function scrollHandler(scrollEvent) {
 }
 
 function mouseHandler(mouseEvent) {
-  /*rotation[1] = mouseEvent.clientX / glcanvas.width * 180 + 180;
-  rotation[0] = mouseEvent.clientY / glcanvas.height * 180 - 90;*/
-  rotation[1] -= mouseEvent.movementX;
-  rotation[0] -= mouseEvent.movementY;
+  yaw -= mouseEvent.movementX / 10;
+  pitch -= mouseEvent.movementY / 10;
 }
