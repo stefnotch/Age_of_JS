@@ -3,12 +3,12 @@ git commit -am "your message goes here"
 git push
 */
 /*TODO 
-Color tutorial
-Camera
+Color tutorial <==
 Matrix inverse
 http://stackoverflow.com/a/29514445/3492994
 */
 var gl; //WebGL lives in here!
+var vaoExt; //Vertex Array Objects extension
 var glcanvas; //Our canvas
 //Translation
 var pos = [0, 0, 0],
@@ -20,6 +20,8 @@ var pitch = 0,
 var scale = 0.05;
 
 var objectsToDraw = [];
+
+var transparentObjectsToDraw = [];
 
 var MatrixMath = {
   degToRad: function(angleInDeg) {
@@ -330,32 +332,34 @@ function start() {
   initCanvas("glcanvas");
 
   //Init WebGL
-  PerlinNoise.cellSize = 60;
+  PerlinNoise.cellSize = 100;
   var noise = fractalNoise(500, 6, 2, 2);
   gl = initWebGL(glcanvas);
 
   if (gl) {
+    vaoExt = gl.getExtension("OES_vertex_array_object");
+
     var vbo = [];
     var heightScale = 10;
     var sizeScale = 5;
     //Array to valid VBO data
     for (var x = 0; x < noise.length - 1; x++) {
       for (var z = 0; z < noise.length; z++) {
+        //vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
+        //vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
+
+        //Order needs to be correct (cullface)
         vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
         vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
-
-        /*vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
         vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
-        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
-
 
         vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
         vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
-        vbo.push((x + 1) / sizeScale, noise[x + 1][z + 1] * heightScale, (z + 1) / sizeScale);*/
+        vbo.push((x + 1) / sizeScale, noise[x + 1][z + 1] * heightScale, (z + 1) / sizeScale);
 
       }
       //Degenerate triangle
-      vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
+      //vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
     }
 
     var vertexShader = createShader(`
@@ -376,7 +380,7 @@ function start() {
     } else if(color.y > 0.0) {
       gl_FragColor = vec4(0, color.y/9.0, 0, 1);  // green
     } else if(color.y >= -1.1){
-      gl_FragColor = vec4(0, 0, 1, 0.5);  // alpha + blue
+      gl_FragColor = vec4(0, 0, 1, 1);  // alpha + blue
     } else {
       gl_FragColor = vec4(0, 0, 0.5+color.y/15.0, 1);  // blue
     }
@@ -385,9 +389,8 @@ function start() {
     // Put the vertex shader and fragment shader together into
     // a complete program
     var shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-    
-    addObjectToDraw(shaderProgram, vbo, "coordinates", "u_matrix");
-    //Map
+
+    addObjectToDraw(shaderProgram, vbo, ["coordinates"], "u_matrix");
 
 
     var water = [];
@@ -395,36 +398,48 @@ function start() {
     water.push(noise.length / sizeScale, -1, 0);
     water.push(0, -1, noise.length / sizeScale);
 
-    water.push(noise.length / sizeScale, -1, noise.length / sizeScale);
+
     water.push(noise.length / sizeScale, -1, 0);
+    water.push(noise.length / sizeScale, -1, noise.length / sizeScale);
     water.push(0, -1, noise.length / sizeScale);
 
-    water = createVBO(water);
+
     //Shaders
-
-
     var waterVertexShader = createShader(`
     attribute vec4 coordinates;
+    //attribute vec2 textureCoord;
     uniform mat4 u_matrix; //The Matrix!
+    varying vec2 texturePos;
+    
     void main(void){
       gl_Position = u_matrix * coordinates;
+      texturePos = coordinates.xz / ${noise.length / sizeScale}.0;
     }
     `, gl.VERTEX_SHADER);
+
     var waterFragmentShader = createShader(`
+    precision mediump float;
+    varying vec2 texturePos;
+    uniform sampler2D u_texture;
     void main() {
-      gl_FragColor = vec4(0, 0, 1, 0.5);
+      vec4 texture = texture2D(u_texture, texturePos);
+      //gl_FragColor = texture;
+      gl_FragColor = vec4(texture.rgb, 0.3);
     }`, gl.FRAGMENT_SHADER);
 
     var waterShaderProgram = createShaderProgram(waterVertexShader, waterFragmentShader);
+
+    addTransparentObjectToDraw(waterShaderProgram, water, ["coordinates"], "u_matrix", "water.jpg");
+    //loadTexture("https://i.imgur.com/PxWbS.gif");
+
+    //loadTexture("waterAni.gif");
+    //loadTexture("https://slm-assets2.secondlife.com/assets/5553970/lightbox/3974332-blue-seamless-water-ripple-texture.jpg?1336696546");
     // Everything we need has now been copied to the graphics
     // hardware, so we can start drawing
 
     // Clear the drawing surface
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    //Get the uniform variables
     gl.enable(gl.DEPTH_TEST);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    //gl.enable(gl.CULL_FACE);
 
     window.requestAnimationFrame(redraw);
   }
@@ -443,27 +458,97 @@ function redraw() {
   var viewMat = MatrixMath.makeInverseCrap(camMat);
 
   var matrix = MatrixMath.multiply(viewMat, MatrixMath.makePerspective(1, glcanvas.clientWidth / glcanvas.clientHeight, 0.5, 1000));
-  
-  
-  objectsToDraw.forEach((object)=>{
+
+  gl.disable(gl.BLEND);
+  gl.cullFace(gl.FRONT);
+  gl.enable(gl.CULL_FACE);
+  objectsToDraw.forEach((object) => {
     //What shader program
     gl.useProgram(object.shaderProgram);
     //What vertices should get used by the GPU
-    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffer);
+    //gl.bindBuffer(gl.ARRAY_BUFFER, object.buffer);
     //Now, let's make our shader able to use the vertices
-    setAttribute(object.attribute);
+    /*object.attributes.forEach((s) =>
+      setAttribute(s));*/
     //Uniforms such as the matrix
     gl.uniformMatrix4fv(object.uniforms, false, matrix);
+    vaoExt.bindVertexArrayOES(object.vao);
     //Draw the object
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, object.bufferLength / 3);
+    gl.drawArrays(gl.TRIANGLES, 0, object.bufferLength / 3);
+    //vaoExt.bindVertexArrayOES(null);  
   });
-  //Triangle (Number of triangles)
-  //gl.enable(gl.BLEND);
-  //gl.disable(gl.DEPTH_TEST);
-  
-  //gl.enable(gl.DEPTH_TEST);
-  //gl.disable(gl.BLEND);
+
+
+  gl.disable(gl.CULL_FACE);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.BLEND);
+  transparentObjectsToDraw.forEach((object) => {
+    //What shader program
+    gl.useProgram(object.shaderProgram);
+    //What vertices should get used by the GPU
+    //gl.bindBuffer(gl.ARRAY_BUFFER, object.buffer);
+    //Now, let's make our shader able to use the vertices
+    /*object.attributes.forEach((s) =>
+      setAttribute(s));*/
+    //Uniforms such as the matrix
+    gl.uniformMatrix4fv(object.uniforms, false, matrix);
+
+    vaoExt.bindVertexArrayOES(object.vao);
+    //Draw the object
+    gl.drawArrays(gl.TRIANGLES, 0, object.bufferLength / 3);
+    //vaoExt.bindVertexArrayOES(null);  
+  });
   window.requestAnimationFrame(redraw);
+}
+
+function loadTexture(textureLocation) {
+  // Create a texture.
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  // Fill the texture with a 1x1 blue pixel.
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+    new Uint8Array([255, 0, 255, 255]));
+  // Asynchronously load an image
+  var image = new Image();
+  image.src = textureLocation;
+  image.addEventListener('load', function() {
+    // Now that the image has loaded make copy it to the texture.
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    //Generate some mipmaps!
+    gl.generateMipmap(gl.TEXTURE_2D);
+  });
+  //setTimeout("", 10000);
+  return texture;
+}
+
+function createVAO(vertices, attributes, textureName = -1, textureSampler = -1) {
+  if (attributes.constructor != Array) {
+    attributes = [attributes];
+  }
+  //Create VAO
+  var vao = vaoExt.createVertexArrayOES();
+  // Start setting up VAO  
+  vaoExt.bindVertexArrayOES(vao);
+  //Create a VBO
+  createVBO(vertices);
+
+  attributes.forEach((s) =>
+    setAttribute(s));
+  
+  console.log(textureName +":"+ textureSampler);
+  if (textureName != -1 && textureSampler != -1) {
+    var texture = loadTexture(textureName);
+    //gl.activeTexture(gl.TEXTURE0);
+    //gl.bindTexture(gl.TEXTURE_2D, texture);
+    //gl.uniform1i(textureSampler, 0);
+  }
+
+  vaoExt.bindVertexArrayOES(null);
+
+  return vao;
 }
 
 /** 
@@ -504,7 +589,7 @@ function createShaderProgram(vertexShader, fragmentShader) {
  * Sets the current attribute for a given shader
  */
 function setAttribute(attribute) {
-  
+
   gl.enableVertexAttribArray(attribute);
   var numComponents = 3; // (x, y, z)
   var type = gl.FLOAT;
@@ -517,16 +602,28 @@ function setAttribute(attribute) {
   //return positionLocation; //Location of the stuff that is being fed to the shader
 }
 
-function addObjectToDraw(shaderProgram, vbo, attributeName, uniformName){
-  var buffer = createVBO(vbo);
-  objectsToDraw.push({
-      shaderProgram: shaderProgram,
-      buffer: buffer,
-      bufferLength: vbo.length,
-      attribute: gl.getAttribLocation(shaderProgram, attributeName),
-      uniforms: gl.getUniformLocation(shaderProgram, uniformName)
-    });
-  
+function createObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName) {
+  var attributes = [];
+  attributeNames.forEach((s) => attributes.push(gl.getAttribLocation(shaderProgram, attributeNames)));
+
+  var vao = createVAO(vertices, attributes, textureName, gl.getUniformLocation(shaderProgram, "u_texture"));
+
+  return {
+    shaderProgram: shaderProgram,
+    vao: vao,
+    bufferLength: vertices.length,
+    uniforms: gl.getUniformLocation(shaderProgram, uniformName)
+  };
+}
+
+function addObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName) {
+  objectsToDraw.push(
+    createObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName));
+}
+
+function addTransparentObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName) {
+  transparentObjectsToDraw.push(
+    createObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName));
 }
 /**
  * OMG! C9 rocks!
@@ -561,7 +658,15 @@ function initWebGL(canvas) {
   if (window.WebGLRenderingContext) {
     try {
       // Try to grab the standard context. If it fails, fallback to experimental.
-      gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+      gl = canvas.getContext("webgl"
+        /*, {
+                premultipliedAlpha: false // Ask for non-premultiplied alpha
+              }*/
+      ) || canvas.getContext("experimental-webgl"
+        /*, {
+                premultipliedAlpha: false // Ask for non-premultiplied alpha
+              }*/
+      );
     }
     catch (e) {
       alert(e);
@@ -593,12 +698,12 @@ function keyboardHandlerDown(keyboardEvent) {
       velocity[1] = Math.sin(pitchRad);
       velocity[2] = -Math.cos(yawRad) * Math.cos(pitchRad);
       break;
-      /*case "ArrowLeft":
-        rotation[1]++;
-        break;
-      case "ArrowRight":
-        rotation[1]--;
-        break;*/
+    case "ArrowLeft":
+      yaw++;
+      break;
+    case "ArrowRight":
+      yaw--;
+      break;
   }
 }
 
