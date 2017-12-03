@@ -11,12 +11,12 @@ var gl; //WebGL lives in here!
 var vaoExt; //Vertex Array Objects extension
 var glcanvas; //Our canvas
 //Translation
-var pos = [0, 0, 0],
+var pos = [ -34.68700392426171, -19.814624492668692, -46.851634142080286 ],
   velocity = [0, 0, 0];
 //Rotation
 //var rotation = [0, 0, 0];
-var pitch = 0,
-  yaw = 0;
+var pitch = -44.59999999999989,
+  yaw = -17.100000000000033;
 var scale = 0.05;
 
 var objectsToDraw = [];
@@ -303,7 +303,8 @@ var PerlinNoise = {
     return this.possibleVectors[vecID][0] * x2 + this.possibleVectors[vecID][1] * y2;
   }
 };
-
+var time;
+var startTime = Date.now();
 function fractalNoise(size, octaves, deltaFrequency, deltaAmplitude) {
   var fNoise = [];
   for (var i = 0; i < size; i++) {
@@ -349,14 +350,37 @@ function start() {
         //vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
 
         //Order needs to be correct (cullface)
-        vbo.push(x / sizeScale, noise[x][z] * heightScale, z / sizeScale);
-        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
-        vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
+        var p1 = [x / sizeScale, noise[x][z] * heightScale, z / sizeScale];
+        var p2 = [(x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale];
+        var p3 = [x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale];
+                
+        var Ux = p2[0] - p1[0],  Uy = p2[1] - p1[1], Uz = p2[2] - p1[2];
+        var Vx = p3[0] - p1[0],  Vy = p3[1] - p1[1], Vz = p3[2] - p1[2];
+        
+        var Nx = Uy * Vz - Uz * Vy, Ny = Uz * Vx - Ux * Vz, Nz = Ux * Vy - Uy * Vx;
+        vbo.push(p1[0],p1[1],p1[2]);
+        vbo.push(Nx, Ny, Nz);
+        vbo.push(p2[0],p2[1],p2[2]);
+        vbo.push(Nx, Ny, Nz);
+        vbo.push(p3[0],p3[1],p3[2]);
+        vbo.push(Nx, Ny, Nz);
+        
+        //2nd triangle
+        p1 = [x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale];
+        p2 = [(x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale];
+        p3 = [(x + 1) / sizeScale, noise[x + 1][z + 1] * heightScale, (z + 1) / sizeScale];
 
-        vbo.push(x / sizeScale, noise[x][z + 1] * heightScale, (z + 1) / sizeScale);
-        vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
-        vbo.push((x + 1) / sizeScale, noise[x + 1][z + 1] * heightScale, (z + 1) / sizeScale);
-
+        Ux = p2[0] - p1[0],  Uy = p2[1] - p1[1], Uz = p2[2] - p1[2];
+        Vx = p3[0] - p1[0],  Vy = p3[1] - p1[1], Vz = p3[2] - p1[2];
+        
+        Nx = Uy * Vz - Uz * Vy, Ny = Uz * Vx - Ux * Vz, Nz = Ux * Vy - Uy * Vx;
+        vbo.push(p1[0],p1[1],p1[2]);
+        vbo.push(Nx, Ny, Nz);
+        vbo.push(p2[0],p2[1],p2[2]);
+        vbo.push(Nx, Ny, Nz);
+        vbo.push(p3[0],p3[1],p3[2]);
+        vbo.push(Nx, Ny, Nz);
+        
       }
       //Degenerate triangle
       //vbo.push((x + 1) / sizeScale, noise[x + 1][z] * heightScale, z / sizeScale);
@@ -364,33 +388,36 @@ function start() {
 
     var vertexShader = createShader(`
     attribute vec4 coordinates;
+    attribute vec3 normal;
     uniform mat4 u_matrix; //The Matrix!
+    
     varying vec4 color;
+    varying vec3 v_normal;
     void main(void){
       gl_Position = u_matrix * coordinates;
       color = coordinates;
+      v_normal = normal;
     }`, gl.VERTEX_SHADER);
 
     var fragmentShader = createShader(`
     precision mediump float;
     varying vec4 color;
+    varying vec3 v_normal;
+    uniform float time;
     void main() {
-    if(color.y > 7.0) {
-      gl_FragColor = vec4(color.y/10.0, color.y/10.0, color.y/10.0, 1);  // white
-    } else if(color.y > 0.0) {
-      gl_FragColor = vec4(0, color.y/9.0, 0, 1);  // green
-    } else if(color.y >= -1.1){
-      gl_FragColor = vec4(0, 0, 1, 1);  // alpha + blue
-    } else {
-      gl_FragColor = vec4(0, 0, 0.5+color.y/15.0, 1);  // blue
-    }
+      float l = (dot(normalize(v_normal), normalize(vec3(1,3,4))) + 1.0);
+      if(color.y > 7.0) {
+        gl_FragColor = vec4(color.y/10.0 * l, color.y/10.0 * l, color.y/10.0 * l, 1);  // white
+      } else {
+        gl_FragColor = vec4(0, color.y/9.0 * l + 0.2, 0, 1);  // green
+      }
     }`, gl.FRAGMENT_SHADER);
 
     // Put the vertex shader and fragment shader together into
     // a complete program
     var shaderProgram = createShaderProgram(vertexShader, fragmentShader);
-
-    addObjectToDraw(shaderProgram, vbo, ["coordinates"], "u_matrix");
+    time = gl.getUniformLocation(shaderProgram, "time");
+    addObjectToDraw(shaderProgram, vbo, ["coordinates", "normal"], "u_matrix");
 
 
     var water = [];
@@ -424,11 +451,12 @@ function start() {
     void main() {
       vec4 texture = texture2D(u_texture, texturePos);
       //gl_FragColor = texture;
-      gl_FragColor = vec4(texture.rgb, 0.3);
+      gl_FragColor = vec4(texture.rgb, 0.6);
+          
     }`, gl.FRAGMENT_SHADER);
 
     var waterShaderProgram = createShaderProgram(waterVertexShader, waterFragmentShader);
-
+    
     addTransparentObjectToDraw(waterShaderProgram, water, ["coordinates"], "u_matrix", "water.jpg");
     //loadTexture("https://i.imgur.com/PxWbS.gif");
 
@@ -458,13 +486,15 @@ function redraw() {
   var viewMat = MatrixMath.makeInverseCrap(camMat);
 
   var matrix = MatrixMath.multiply(viewMat, MatrixMath.makePerspective(1, glcanvas.clientWidth / glcanvas.clientHeight, 0.5, 1000));
-
+  
+  gl.enable(gl.DEPTH_TEST);
   gl.disable(gl.BLEND);
   gl.cullFace(gl.FRONT);
   gl.enable(gl.CULL_FACE);
   objectsToDraw.forEach((object) => {
     //What shader program
     gl.useProgram(object.shaderProgram);
+    gl.uniform1f(time, Date.now() - startTime);
     //What vertices should get used by the GPU
     //gl.bindBuffer(gl.ARRAY_BUFFER, object.buffer);
     //Now, let's make our shader able to use the vertices
@@ -480,10 +510,13 @@ function redraw() {
 
 
   gl.disable(gl.CULL_FACE);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  //gl.disable(gl.DEPTH_TEST);
+  //gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
   //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  gl.enable(gl.BLEND);
+  gl.enable( gl.BLEND );
+  gl.blendEquation( gl.FUNC_ADD );
+  gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
   transparentObjectsToDraw.forEach((object) => {
     //What shader program
     gl.useProgram(object.shaderProgram);
@@ -517,6 +550,7 @@ function loadTexture(textureLocation) {
     // Now that the image has loaded make copy it to the texture.
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    //gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     //Generate some mipmaps!
     gl.generateMipmap(gl.TEXTURE_2D);
   });
@@ -535,8 +569,34 @@ function createVAO(vertices, attributes, textureName = -1, textureSampler = -1) 
   //Create a VBO
   createVBO(vertices);
 
-  attributes.forEach((s) =>
-    setAttribute(s));
+  if(attributes.length == 2){
+  gl.enableVertexAttribArray(attributes[0]);
+  var numComponents = 3; // (x, y, z)
+  var type = gl.FLOAT;
+  var normalize = false; // leave the values as they are
+  var offset = 0; // start at the beginning of the buffer
+  var stride = 6 * 4; // how many bytes to move to the next vertex
+  // 0 = use the correct stride for type and numComponents
+  gl.vertexAttribPointer(attributes[0], numComponents, type, normalize, stride, offset);
+
+  gl.enableVertexAttribArray(attributes[1]);
+  var numComponents = 3; // (x, y, z)
+  var type = gl.FLOAT;
+  var normalize = false; // leave the values as they are
+  var offset = 3 * 4; // start at the beginning of the buffer
+  var stride = 6 * 4; // how many bytes to move to the next vertex
+  // 0 = use the correct stride for type and numComponents
+  gl.vertexAttribPointer(attributes[1], numComponents, type, normalize, stride, offset);
+  }else{
+     gl.enableVertexAttribArray(attributes[0]);
+  var numComponents = 3; // (x, y, z)
+  var type = gl.FLOAT;
+  var normalize = false; // leave the values as they are
+  var offset = 0; // start at the beginning of the buffer
+  var stride = 0; // how many bytes to move to the next vertex
+  // 0 = use the correct stride for type and numComponents
+  gl.vertexAttribPointer(attributes[0], numComponents, type, normalize, stride, offset);
+  }
   
   console.log(textureName +":"+ textureSampler);
   if (textureName != -1 && textureSampler != -1) {
@@ -585,33 +645,16 @@ function createShaderProgram(vertexShader, fragmentShader) {
 
   return shaderProgram;
 }
-/**
- * Sets the current attribute for a given shader
- */
-function setAttribute(attribute) {
-
-  gl.enableVertexAttribArray(attribute);
-  var numComponents = 3; // (x, y, z)
-  var type = gl.FLOAT;
-  var normalize = false; // leave the values as they are
-  var offset = 0; // start at the beginning of the buffer
-  var stride = 0; // how many bytes to move to the next vertex
-  // 0 = use the correct stride for type and numComponents
-  gl.vertexAttribPointer(attribute, numComponents, type, normalize, stride, offset);
-
-  //return positionLocation; //Location of the stuff that is being fed to the shader
-}
 
 function createObjectToDraw(shaderProgram, vertices, attributeNames, uniformName, textureName) {
   var attributes = [];
-  attributeNames.forEach((s) => attributes.push(gl.getAttribLocation(shaderProgram, attributeNames)));
-
+  attributeNames.forEach((s) => attributes.push(gl.getAttribLocation(shaderProgram, s)));
   var vao = createVAO(vertices, attributes, textureName, gl.getUniformLocation(shaderProgram, "u_texture"));
 
   return {
     shaderProgram: shaderProgram,
     vao: vao,
-    bufferLength: vertices.length,
+    bufferLength: vertices.length / attributeNames.length,
     uniforms: gl.getUniformLocation(shaderProgram, uniformName)
   };
 }
