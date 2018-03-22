@@ -457,7 +457,7 @@ function start() {
 
     var waterShaderProgram = createShaderProgram(waterVertexShader, waterFragmentShader);
     
-    addTransparentObjectToDraw(waterShaderProgram, water, ["coordinates"], "u_matrix", "water.jpg");
+    addTransparentObjectToDraw(waterShaderProgram, water, ["coordinates"], "u_matrix", "water.jpg?s=1");
     //loadTexture("https://i.imgur.com/PxWbS.gif");
 
     //loadTexture("waterAni.gif");
