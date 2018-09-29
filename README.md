@@ -1,4 +1,4 @@
-# Age_of_JS
+# [Age_of_JS](https://stefnotch.github.io/Age_of_JS/)
 A tiny WebGL terrain rendering experiment
 
 It uses perlin noise to generate a terrain and then renders it with WebGL
